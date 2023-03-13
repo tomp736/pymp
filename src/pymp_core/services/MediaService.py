@@ -3,12 +3,11 @@ from typing import IO, List
 from typing import Union
 import io
 
-from pymp_core.app.config import pymp_env
-
-from pymp_core.dto.MediaRegistry import PympServiceType
+from pymp_core.app.config import PympServerRoles, ServerConfig
 
 from pymp_core.abstractions.providers import MediaChunk
 from pymp_core.abstractions.providers import MediaDataProvider
+from pymp_core.dto.service_info import ServiceInfo
 from pymp_core.providers import MediaProviderFactory, MediaRegistryProviderFactory
 
 from pymp_core.utils.RepeatTimer import RepeatTimer
@@ -16,8 +15,9 @@ from pymp_core.utils.RepeatTimer import RepeatTimer
 from pymp_core.decorators import prom
 
 class MediaService:
-
-    def __init__(self) -> None:
+    
+    def __init__(self, server_config: ServerConfig):
+        self.server_config = server_config
         self.register_timer = RepeatTimer(60, self.register)
 
     def __repr__(self) -> str:
@@ -28,7 +28,7 @@ class MediaService:
         media_registry_provider = media_registry_providers[0]
         media_info = media_registry_provider.get_media_info(media_id)
         if media_info:
-            for media_provider in MediaProviderFactory.get_data_providers(media_info.service_id):
+            for media_provider in MediaProviderFactory.get_data_providers(media_info.server_id):
                 logging.info(media_provider)
                 if (media_id in media_provider.get_media_ids()):
                     return media_provider
@@ -63,10 +63,8 @@ class MediaService:
     @prom.prom_count_method_call
     @prom.prom_count_method_time
     def get_media_ids(self) -> List[str]:
-        service_info = pymp_env.get_this_service_info()
-        if PympServiceType(service_info.service_type) & PympServiceType.MEDIA_SVC:
-            media_provider = MediaProviderFactory.get_data_providers(
-                service_info.service_id)[0]
+        if self.server_config.roles & PympServerRoles.MEDIA_SVC:
+            media_provider = MediaProviderFactory.get_data_providers(self.server_config.id)[0]
             return media_provider.get_media_ids()
         return []
 
@@ -76,15 +74,13 @@ class MediaService:
     @prom.prom_count_method_call
     @prom.prom_count_method_time
     def update_index(self) -> None:
-        service_info = pymp_env.get_this_service_info()
-        if PympServiceType(service_info.service_type) & PympServiceType.MEDIA_SVC:
-            media_provider = MediaProviderFactory.get_data_providers(
-                service_info.service_id)[0]
+        if self.server_config.roles & PympServerRoles.MEDIA_SVC:
+            media_provider = MediaProviderFactory.get_data_providers(self.server_config.id)[0]
             media_provider.update_index()
 
-    def register(self):
-        service_info = pymp_env.get_this_service_info()
-        if PympServiceType(service_info.service_type) & PympServiceType.MEDIA_SVC:
+    def register(self) -> ServiceInfo:
+        service_info = ServiceInfo(**self.server_config.__dict__)
+        if self.server_config.roles & PympServerRoles.MEDIA_SVC:
             self.update_index()
             media_registry_providers = MediaRegistryProviderFactory.get_media_registry_providers(True)
             if len(media_registry_providers) == 0:
@@ -93,4 +89,5 @@ class MediaService:
             media_registry_provider = media_registry_providers[0]
             logging.info(media_registry_provider.__repr__())
             registered_service_info = media_registry_provider.set_service_info(service_info)
-            pymp_env.set_this_service_info(registered_service_info)
+            return registered_service_info
+        return service_info

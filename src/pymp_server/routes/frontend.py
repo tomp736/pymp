@@ -6,8 +6,8 @@ from flask import Response
 from flask import request
 from flask import redirect
 from pymp_core.abstractions.providers import MediaChunk
+from pymp_core.app.config_factory import CONFIG_FACTORY
 
-from pymp_core.app.config import pymp_env
 from pymp_core.app.services import MEDIA_SERVICE
 from pymp_core.app.services import MEDIA_REGISTRY_SERVICE
 
@@ -59,7 +59,7 @@ def get_media_thumb(media_id):
 @app_frontend_media.after_request
 @app_frontend_thumb.after_request
 def after_request(response):
+    flask_config = CONFIG_FACTORY.get_flask_config()
     response.headers.set('Accept-Ranges', 'bytes')
-    response.headers.set('Access-Control-Allow-Origin',
-                         pymp_env.get("CORS_HEADER"))
+    response.headers.set('Access-Control-Allow-Origin', flask_config.cors_headers)
     return response

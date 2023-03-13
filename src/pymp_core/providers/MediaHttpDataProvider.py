@@ -5,10 +5,9 @@ from typing import List
 from typing import Union
 
 import requests
+from pymp_core.app.config import ServiceConfig
 from pymp_core.decorators import prom
 
-
-from pymp_core.dto.MediaRegistry import ServiceInfo
 
 from pymp_core.dataaccess.http_request_factory import http_request_factory
 from pymp_core.abstractions.providers import MediaDataProvider
@@ -16,9 +15,10 @@ from pymp_core.abstractions.providers import MediaChunk
 
 
 class MediaHttpDataProvider(MediaDataProvider):
-    def __init__(self, serviceinfo: ServiceInfo):
+    
+    def __init__(self, service_config: ServiceConfig):
         self.status = True
-        self.serviceinfo = serviceinfo
+        self.service_config = service_config
         self.readonly = False
 
     def __repr__(self) -> str:
@@ -28,7 +28,7 @@ class MediaHttpDataProvider(MediaDataProvider):
         return self.readonly
 
     def get_service_url(self) -> str:
-        return self.serviceinfo.get_uri()
+        return self.service_config.get_uri()
 
     def is_ready(self) -> bool:
         return self.status

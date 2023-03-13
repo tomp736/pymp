@@ -33,18 +33,7 @@ jobs:
     with:
       build_registry: ghcr.io
       build_repo: ${{ github.repository }}
-      build_tag: ${{ github.event.pull_request.head.ref }}-${{ github.event.pull_request.number }}
-    secrets: inherit
-
-  # create tag if build succeeds
-  create_tag:
-
-    needs:
-      - docker_build_push
-      
-    uses: ./.github/workflows/on_wfc_create_tag.yml
-    with:
-      tag: ${{ github.event.pull_request.head.ref }}-${{ github.event.pull_request.number }}
+      build_tag: ${{ github.event.pull_request.head.ref }}-${{ github.event.pull_request.number }}-${{ github.event.pull_request.commits }}
     secrets: inherit
 
   # issue repository dispatch
@@ -52,10 +41,9 @@ jobs:
 
     needs:
       - docker_build_push
-      - create_tag
       
     uses: ./.github/workflows/on_wfc_dispatch_deployment.yml
     with:
       environment: ${{ github.event.pull_request.head.ref }}
-      version: ${{ github.event.pull_request.head.ref }}-${{ github.event.pull_request.number }}
+      version: ${{ github.event.pull_request.head.ref }}-${{ github.event.pull_request.number }}-${{ github.event.pull_request.commits }}
     secrets: inherit

@@ -9,7 +9,8 @@ from pymp_core.dataaccess.redis import redis_service_info
 from pymp_core.dataaccess.redis import redis_media_info
 from pymp_core.decorators import prom
 
-from pymp_core.dto.MediaRegistry import MediaInfo, ServiceInfo
+from pymp_core.dto.media_info import MediaInfo
+from pymp_core.dto.service_info import ServiceInfo
 
 
 class MediaRegistryRedisDataProvider(MediaRegistryDataProvider):
@@ -37,8 +38,8 @@ class MediaRegistryRedisDataProvider(MediaRegistryDataProvider):
 
     @prom.prom_count_method_call
     @prom.prom_count_method_time
-    def get_service_info(self, service_id: str) -> Union[ServiceInfo, None]:
-        return redis_service_info.hget(service_id)
+    def get_service_info(self, server_id: str) -> Union[ServiceInfo, None]:
+        return redis_service_info.hget(server_id)
 
     @prom.prom_count_method_call
     @prom.prom_count_method_time
@@ -53,8 +54,8 @@ class MediaRegistryRedisDataProvider(MediaRegistryDataProvider):
 
     @prom.prom_count_method_call
     @prom.prom_count_method_time
-    def del_service_info(self, service_id) -> Union[int, None]:
-        return redis_service_info.hdel(service_id)
+    def del_service_info(self, server_id) -> Union[int, None]:
+        return redis_service_info.hdel(server_id)
 
     # media_id -> MEDIAINFO
 

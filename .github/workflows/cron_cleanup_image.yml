@@ -3,7 +3,7 @@ name: 'cron cleanup images'
 on:
   workflow_dispatch:
   schedule:
-    - cron:  '0 * * * *'
+    - cron:  '0 0 * * *'
 
 jobs:
   image-cleanup:

@@ -6,7 +6,8 @@ from flask import request
 from flask import Blueprint
 
 from pymp_core.app.services import MEDIA_REGISTRY_SERVICE
-from pymp_core.dto.MediaRegistry import MediaInfo, ServiceInfo
+from pymp_core.dto.media_info import MediaInfo
+from pymp_core.dto.service_info import ServiceInfo
 
 app_mediaregistry = Blueprint('app_mediaregistry', __name__)
 
@@ -18,10 +19,10 @@ def get_registry_service_list():
     return Response(json_response, status=200, content_type="application/json")
 
 
-@app_mediaregistry.route('/registry/service/<string:service_id>')
-def get_registry_service(service_id):
+@app_mediaregistry.route('/registry/service/<string:server_id>')
+def get_registry_service(server_id):
     service_infos = MEDIA_REGISTRY_SERVICE.get_media_registry_provider().get_all_service_info()
-    service_info = service_infos[service_id]
+    service_info = service_infos[server_id]
     json_response = json.dumps(service_info, default=lambda o: o.__dict__,  sort_keys=True, indent=4)
     return Response(json_response, status=200, content_type="application/json")
 
@@ -31,8 +32,8 @@ def post_registry_service():
     if request.json:
         service_info = ServiceInfo.from_json(request.json)
 
-        if service_info.service_id == "":
-            service_info.service_id = str(uuid.uuid4())
+        if service_info.id == "":
+            service_info.id = str(uuid.uuid4())
 
         if not service_info is None:
             MEDIA_REGISTRY_SERVICE.register_service(service_info)

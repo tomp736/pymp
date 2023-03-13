@@ -6,7 +6,7 @@ from typing import Dict
 from typing import List
 from typing import Union
 
-from pymp_core.app.config import pymp_env
+from pymp_core.app.config import MediaConfig
 from pymp_core.abstractions.providers import MediaDataProvider
 from pymp_core.abstractions.providers import MediaChunk
 from pymp_core.decorators import prom
@@ -14,14 +14,12 @@ from pymp_core.decorators import prom
 
 
 class MediaFileDataProvider(MediaDataProvider):
-    def __init__(self):
+    
+    def __init__(self, media_config: MediaConfig):
+        self.media_config = media_config
         self.status = True
-        self.mediapath = pymp_env.get("MEDIA_SVC_MEDIAPATH")
-        self.indexpath = pymp_env.get("MEDIA_SVC_INDEXPATH")
-        if not os.path.exists(self.mediapath):
-            os.mkdir(self.mediapath)
-        if not os.path.exists(self.indexpath):
-            os.mkdir(self.indexpath)
+        os.makedirs(self.media_config.media_path, exist_ok=True)
+        os.makedirs(self.media_config.index_path, exist_ok=True)
 
     def __repr__(self) -> str:
         return f"MediaFileDataProvider({self.status})"
@@ -35,7 +33,7 @@ class MediaFileDataProvider(MediaDataProvider):
     @prom.prom_count_method_call
     @prom.prom_count_method_time
     def get_media_uri(self, media_id: str) -> Union[str, None]:
-        return os.path.join(self.indexpath, media_id)
+        return os.path.join(self.media_config.index_path, media_id)
 
     @prom.prom_count_method_call
     @prom.prom_count_method_time
@@ -69,7 +67,7 @@ class MediaFileDataProvider(MediaDataProvider):
     @prom.prom_count_method_call
     @prom.prom_count_method_time
     def save_media(self, name: str, stream: IO[bytes]):
-        fullpath = os.path.join(self.mediapath, name)
+        fullpath = os.path.join(self.media_config.media_path, name)
 
         with open(fullpath, "bw") as f:
             chunk_size = 4096
@@ -122,14 +120,14 @@ class MediaFileDataProvider(MediaDataProvider):
             media_basename = os.path.basename(fs_mediafile)
             logging.info(f" -- ADDING -- {index_basename} = {media_basename}")
             os.symlink(f"../media/{media_basename}",
-                       f"{self.indexpath}/{index_basename}")
+                       f"{self.media_config.index_path}/{index_basename}")
 
     @prom.prom_count_method_call
     @prom.prom_count_method_time
     def read_mediafiles(self):
         file_list = []
-        for filename in os.listdir(self.mediapath):
-            filepath = os.path.join(self.mediapath, filename)
+        for filename in os.listdir(self.media_config.media_path):
+            filepath = os.path.join(self.media_config.media_path, filename)
             if os.path.isfile(filepath):
                 file_list.append(filepath)
         return file_list
@@ -138,8 +136,8 @@ class MediaFileDataProvider(MediaDataProvider):
     @prom.prom_count_method_time
     def read_indexfiles(self):
         file_list = []
-        for filename in os.listdir(self.indexpath):
-            filepath = os.path.join(self.indexpath, filename)
+        for filename in os.listdir(self.media_config.index_path):
+            filepath = os.path.join(self.media_config.index_path, filename)
             if os.path.isfile(filepath):
                 file_list.append(filepath)
         return file_list
@@ -155,7 +153,7 @@ class MediaFileDataProvider(MediaDataProvider):
         if eByte:
             length = eByte + 1 - sByte
 
-        if length > int(pymp_env.get("MEDIA_CHUNK_SIZE")):
-            length = int(pymp_env.get("MEDIA_CHUNK_SIZE"))
+        if length > self.media_config.media_chunk_size:
+            length = self.media_config.media_chunk_size
 
         return start, length

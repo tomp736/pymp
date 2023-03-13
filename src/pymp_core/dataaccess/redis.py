@@ -4,18 +4,17 @@ import redis
 
 from typing import Dict, List
 from typing import Union
+from pymp_core.app.config import RedisConfig
 
-from pymp_core.app.config import pymp_env
-from pymp_core.dto.MediaRegistry import MediaInfo
-from pymp_core.dto.MediaRegistry import ServiceInfo
+from pymp_core.app.config_factory import CONFIG_FACTORY
+from pymp_core.dto.media_info import MediaInfo
+from pymp_core.dto.service_info import ServiceInfo
 
 
 class RedisDataAccess(ABC):
     def __init__(self, decode_responses):
-        host = pymp_env.get("REDIS_HOST")
-        port = pymp_env.get("REDIS_PORT")
-        self.redis = redis.Redis(host=host, port=int(
-            port), db=0, decode_responses=decode_responses)
+        self.config = CONFIG_FACTORY.get_redis_config()
+        self.redis = redis.Redis(host=self.config.host, port=self.config.port, db=0, decode_responses=decode_responses)
 
     def is_redis_readonly_replica(self) -> bool:
         info = self.redis.info()
@@ -41,7 +40,7 @@ class RedisServiceInfoDataAccess(RedisDataAccess):
         self.expire()
         return self.redis.hset(
             self.key,
-            service_info.service_id,
+            service_info.id,
             service_info.to_json()
         )
 
@@ -57,7 +56,7 @@ class RedisServiceInfoDataAccess(RedisDataAccess):
     def hgetall(self) -> Dict[str, ServiceInfo]:
         service_infos_json = self.redis.hgetall(self.key)
         service_infos = {
-            service_id: ServiceInfo.from_json(service_info) for service_id, service_info in service_infos_json.items()
+            server_id: ServiceInfo.from_json(service_info) for server_id, service_info in service_infos_json.items()
         }
         return service_infos
 

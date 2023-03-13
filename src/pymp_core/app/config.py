@@ -1,100 +1,177 @@
+from abc import abstractmethod
+from enum import IntFlag
+from typing import Dict
 import os
+import logging
 
-from pymp_core.dto.MediaRegistry import PympServiceType
-from pymp_core.dto.MediaRegistry import ServiceInfo
-
-FLASK_RUN_HOST="0.0.0.0"
-FLASK_RUN_PORT="80"
-REDIS_HOST=""
-REDIS_PORT="2379"
-SERVICE_TYPE=63
-SERVICE_ID="DEFAULT"
-SERVICE_PROTO="http"
-SERVICE_HOST="localhost"
-SERVICE_PORT=80
-MEDIA_SVC_MEDIAPATH="/app/media"
-MEDIA_SVC_INDEXPATH="/app/index"
-CORS_HEADER="*"
-MEDIA_CHUNK_SIZE=2 ** 22
-THUMB_CHUNK_SIZE=2 ** 10
+class PympServerRoles(IntFlag):
+    NONE = 1
+    MEDIA_API = 2
+    META_API = 4
+    THUMB_API = 8
+    MEDIA_SVC = 16
+    FFMPEG_SVC = 32
+    MEDIAREGISTRY_SVC = 64
 
 
-class PympEnv:
+class IConfig():
 
-    def __init__(self):
-        self.load_configs()
+    @abstractmethod
+    def load(self, kwargs):
+        pass
 
-    def load_configs(self):
-        # load config keys from env
-        for config_key, config_value in globals().items():
-            globals()[config_key] = os.environ.get(config_key, config_value)
+    @abstractmethod
+    def load_config(self, config: Dict[str, str]):
+        pass
 
-        globals()["SERVICE_ID"] = os.environ.get("SERVICE_ID", "")
-        globals()["SERVICE_TYPE"] = os.environ.get("SERVICE_TYPE", "")
-        globals()["SERVICE_PROTO"] = os.environ.get("SERVICE_PROTO", "")
-        service_ip = os.environ.get("SERVICE_IP", "")
-        if service_ip != "":
-            globals()["SERVICE_HOST"] = service_ip
-        else:            
-            globals()["SERVICE_HOST"] = os.environ.get("SERVICE_HOST", "")
-        globals()["SERVICE_PORT"] = os.environ.get("SERVICE_PORT", "")
+    @abstractmethod
+    def validate_config(self) -> bool: 
+        pass
 
-        # load host service info
-        # used for hard-coded service resolution when needed
-        for pymp_service_type in PympServiceType:
-            globals()[f"{pymp_service_type.name}_ID"] = os.environ.get(
-                f"{pymp_service_type.name}_ID", "")
-            globals()[f"{pymp_service_type.name}_TYPE"] = os.environ.get(
-                f"{pymp_service_type.name}_TYPE", "")
-            globals()[f"{pymp_service_type.name}_PROTO"] = os.environ.get(
-                f"{pymp_service_type.name}_PROTO", "")
-            globals()[f"{pymp_service_type.name}_HOST"] = os.environ.get(
-                f"{pymp_service_type.name}_HOST", "")
-            globals()[f"{pymp_service_type.name}_PORT"] = os.environ.get(
-                f"{pymp_service_type.name}_PORT", "")
 
-    def get(self, key: str) -> str:
-        if key in globals():
-            return str(globals().get(key))
+class FlaskConfig(IConfig):
+
+    host: str = ""
+    port: int = 80
+    cors_headers: str = "*"
+
+    def __init__(self, **kwargs) -> None:
+        self.load(kwargs)
+
+    def load(self, kwargs):
+        self.host = kwargs.get('host', self.host)
+        self.port = kwargs.get('port', self.port)
+        self.cors_headers = kwargs.get('cors_headers', self.cors_headers)
+
+    def load_config(self, config: Dict[str, str]):
+        self.host = config.get('host', self.host)
+        self.port = int(config.get('port', self.port))
+        self.cors_headers = config.get('cors_headers', self.cors_headers)
+
+    def validate_config(self) -> bool:
+        return True
+
+
+class ServerConfig(IConfig):
+
+    id: str = ""
+    roles: PympServerRoles = PympServerRoles.NONE
+    host: str = ""
+    proto: str = "http"
+    port: int = 80
+
+    def __init__(self, **kwargs) -> None:
+        self.load(kwargs)
+
+    def load(self, kwargs):
+        self.id = kwargs.get('id', self.id)
+        self.roles = kwargs.get('roles', self.roles)
+        self.proto = kwargs.get('proto', self.proto)
+        self.host = kwargs.get('host', self.host)
+        self.port = kwargs.get('port', self.port)
+
+    def load_config(self, config: Dict[str, str]):
+        self.id = config.get('id', self.id)
+        self.roles = PympServerRoles(int(config.get('roles', self.roles)))
+        self.proto = config.get('proto', self.proto)
+        self.host = config.get('host', self.host)
+        self.port = int(config.get('port', self.port))
+
+    def validate_config(self) -> bool:
+        return True
+
+class ServiceConfig(IConfig):
+
+    id: str = ""
+    roles: PympServerRoles = PympServerRoles.NONE
+    host: str = ""
+    proto: str = "http"
+    port: int = 80
+
+    def __init__(self, **kwargs) -> None:
+        self.load(kwargs)
+
+    def load(self, kwargs):
+        logging.info(kwargs)
+        self.id = kwargs.get('id', self.id)
+        self.roles = kwargs.get('roles', self.roles)
+        self.proto = kwargs.get('proto', self.proto)
+        self.host = kwargs.get('host', self.host)
+        self.port = kwargs.get('port', self.port)
+
+    def load_config(self, config: Dict[str, str]):
+        logging.info(config)
+        self.id = config.get('id', self.id)
+        self.roles = PympServerRoles(int(config.get('roles', self.roles)))
+        self.proto = config.get('proto', self.proto)
+        self.host = config.get('host', self.host)
+        self.port = int(config.get('port', self.port))
+
+    def validate_config(self) -> bool:
+        if self.proto in ["http", "https"]:
+            return True
         else:
-            raise ValueError(f"{key} is not configured in PympEnv.")
+            return False
 
-    def set(self, key: str, value: str):
-        if key in globals():
-            globals()[key] = value
+    def get_uri(self):
+        if self.validate_config():
+            return f"{self.proto}://{self.host}:{self.port}"
         else:
-            raise ValueError(f"{key} is not configured in PympEnv.")
-
-    def is_this_service_type(self, pymp_service_type: PympServiceType) -> bool:
-        service_info = self.get_this_service_info()
-        service_type = PympServiceType(service_info.service_type)
-        is_type = bool(service_type & pymp_service_type)
-        return is_type
-
-    def get_service_info(self, pymp_service_type: PympServiceType) -> ServiceInfo:
-        service_info = ServiceInfo()
-        service_info.service_id = self.get(
-            f"{pymp_service_type.name}_ID")
-        service_info.service_type = PympServiceType(pymp_service_type.value)
-        service_info.service_proto = self.get(
-            f"{pymp_service_type.name}_PROTO")
-        service_info.service_host = self.get(
-            f"{pymp_service_type.name}_HOST")
-        service_info.service_port = self.get(
-            f"{pymp_service_type.name}_PORT")
-        return service_info
-
-    def set_this_service_info(self, service_info: ServiceInfo):
-        globals()["SERVICE_ID"] = service_info.service_id
-
-    def get_this_service_info(self) -> ServiceInfo:
-        service_info = ServiceInfo()
-        service_info.service_id = self.get("SERVICE_ID")
-        service_info.service_type = PympServiceType(int(self.get("SERVICE_TYPE")))
-        service_info.service_proto = self.get("SERVICE_PROTO")
-        service_info.service_host = self.get("SERVICE_HOST")
-        service_info.service_port = self.get("SERVICE_PORT")
-        return service_info
+            raise Exception(f"ServiceInfo Not Valid: {self.__dict__}")
 
 
-pymp_env = PympEnv()
+class RedisConfig(IConfig):
+
+    host: str = ""
+    port: int = 2379
+
+    def __init__(self, **kwargs) -> None:
+        self.load(kwargs)
+
+    def load(self, kwargs):
+        self.host = kwargs.get('host', self.host)
+        self.port = kwargs.get('port', self.port)
+
+    def load_config(self, config: Dict[str, str]):
+        self.host = config.get('host', self.host)
+        self.port = int(config.get('port', self.port))
+
+    def validate_config(self) -> bool:
+        return True
+
+class MediaConfig(IConfig):
+
+    media_path: str = ""
+    index_path: str = ""
+    media_chunk_size: int = 2 ** 22
+    thumb_chunk_size: int = 2 ** 20
+
+    def __init__(self, **kwargs) -> None:
+        self.load(kwargs)
+
+    def load(self, kwargs):
+        logging.info(kwargs)
+        self.media_path = kwargs.get('media_path', self.media_path)
+        self.index_path = kwargs.get('index_path', self.index_path)
+        self.media_chunk_size = int(kwargs.get(
+            'media_chunk_size', self.media_chunk_size))
+        self.thumb_chunk_size = int(kwargs.get(
+            'thumb_chunk_size', self.thumb_chunk_size))
+
+    def load_config(self, config: Dict[str, str]):
+        logging.info(config)
+        self.media_path = config.get('media_path', self.media_path)
+        self.index_path = config.get('index_path', self.index_path)
+        self.media_chunk_size = int(config.get(
+            'media_chunk_size', self.media_chunk_size))
+        self.thumb_chunk_size = int(config.get(
+            'thumb_chunk_size', self.thumb_chunk_size))
+
+    def validate_config(self) -> bool:
+        logging.info(self.__dict__)
+        if not os.path.exists(self.media_path):
+            return False
+        if not os.path.exists(self.index_path):
+            return False
+        return True
+

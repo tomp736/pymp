@@ -2,15 +2,16 @@ from abc import ABC
 from abc import abstractmethod
 
 import io
+import logging
 
 from typing import IO
 from typing import Dict
 from typing import List
 from typing import Union
 
-from pymp_core.dto.Media import MediaChunk
-from pymp_core.dto.MediaRegistry import MediaInfo
-from pymp_core.dto.MediaRegistry import ServiceInfo
+from pymp_core.dto.media_chunk import MediaChunk
+from pymp_core.dto.media_info import MediaInfo
+from pymp_core.dto.service_info import ServiceInfo
 
 
 class DataProvider(ABC):
@@ -22,6 +23,17 @@ class DataProvider(ABC):
     @abstractmethod
     def is_ready(self) -> bool:
         pass
+
+    def check_data_provider(self, wants_write_access) -> bool:
+        if not self.is_ready():
+            logging.info(f"IGNORING {self.__class__}: failed ready check")
+            return False
+
+        if wants_write_access and self.is_readonly():
+            logging.info(f"IGNORING {self.__class__}: failed write_access check")
+            return False
+
+        return True
 
 
 class MediaDataProvider(DataProvider):
@@ -103,9 +115,9 @@ class MediaMetaProvider(DataProvider):
 
 class MediaRegistryDataProvider(DataProvider):
 
-    # service_id => ServiceInfo
+    # server_id => ServiceInfo
     @abstractmethod
-    def get_service_info(self, service_id: str) -> ServiceInfo:
+    def get_service_info(self, server_id: str) -> ServiceInfo:
         pass
 
     @abstractmethod
@@ -117,7 +129,7 @@ class MediaRegistryDataProvider(DataProvider):
         pass
 
     @abstractmethod
-    def del_service_info(self, service_id: str) -> int:
+    def del_service_info(self, server_id: str) -> int:
         pass
 
     # media_id -> MediaInfo

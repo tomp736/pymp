@@ -3,15 +3,14 @@
 import io
 from typing import Union
 from pymp_core.abstractions.providers import FfmpegDataProvider
+from pymp_core.app.config import ServiceConfig
 from pymp_core.decorators import prom
-
-from pymp_core.dto.MediaRegistry import ServiceInfo
 
 
 class FfmpegHttpDataProvider(FfmpegDataProvider):
     
-    def __init__(self, serviceinfo: ServiceInfo):
-        self.serviceinfo = serviceinfo
+    def __init__(self, service_config: ServiceConfig):
+        self.service_config = service_config
         
     def __repr__(self) -> str:
         return "FfmpegHttpDataProvider()"
